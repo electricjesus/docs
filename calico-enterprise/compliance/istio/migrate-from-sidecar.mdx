@@ -111,14 +111,13 @@ Layer 4 enforcement is not affected. zTunnel enforces L4 `AuthorizationPolicy` r
    kubectl get peerauthentication --all-namespaces -o yaml | grep -B5 'mode: DISABLE'
    ```
 
-1. Install the Gateway API CRDs if you plan to use Waypoints or `HTTPRoute`. Most clusters do not have them by default.
+:::note
 
-   ```bash
-   kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
-     kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.0/experimental-install.yaml
-   ```
+Waypoints and `HTTPRoute` need the Gateway API CRDs.
+You do not need to install them yourself: the Tigera Operator creates them when you create the `Istio` custom resource.
+If your cluster already has them, the operator leaves them in place.
 
-{/* ENG REVIEW: pin the Gateway API version we test against, and state whether the operator installs the Gateway API CRDs itself when Waypoint logging is enabled. */}
+:::
 
 ## Plan your cutover
 
