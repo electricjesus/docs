@@ -32,7 +32,8 @@ On $[prodname], that comes with three additional benefits:
 | Envoy sidecar in every pod | zTunnel DaemonSet in `calico-system`, one proxy per node |
 | Istio control plane in `istio-system`, self-managed | istiod in `calico-system`, installed and upgraded by the Tigera Operator |
 | `VirtualService` | `HTTPRoute` (Gateway API), attached to a Waypoint |
-| `DestinationRule` | No change. Traffic policies are applied by the Waypoint |
+| `DestinationRule` traffic policy (connection pool, outlier detection, TLS) | No change. The Waypoint applies it |
+| `DestinationRule` subsets used for routing | One Kubernetes `Service` per version, used as a `backendRef` in the `HTTPRoute` |
 | `AuthorizationPolicy` with L4 rules only | No change. zTunnel enforces these directly |
 | `AuthorizationPolicy` with L7 rules | Must target a Waypoint with `targetRefs` instead of selecting pods |
 | `RequestAuthentication` | Must target a Waypoint with `targetRefs` |
@@ -358,10 +359,15 @@ Follow this order. Doing it out of order can leave traffic handled by neither a 
    kubectl delete authorizationpolicy <policy-name> -n <namespace>
    ```
 
-   Delete the `VirtualService` and `DestinationRule` resources you replaced with `HTTPRoute`:
+   Delete the `VirtualService` resources you replaced with `HTTPRoute`:
 
    ```bash
    kubectl delete virtualservice <name> -n <namespace>
+   ```
+
+   Keep your `DestinationRule` resources. The Waypoint still applies their traffic policies. Delete one only if it defines nothing but subsets that you replaced with per-version services:
+
+   ```bash
    kubectl delete destinationrule <name> -n <namespace>
    ```
 
