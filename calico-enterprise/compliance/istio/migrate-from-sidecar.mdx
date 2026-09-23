@@ -197,6 +197,25 @@ kubectl get authorizationpolicy,peerauthentication,requestauthentication,telemet
 Before Step 2, re-create each one in `calico-system`.
 Until Step 2, `calico-system` is not the root namespace and has no meshed workloads, so the copies have no effect yet.
 
+### Check your mesh config
+
+Your self-managed Istio keeps its mesh-wide settings in the `mesh` key of the `istio` config map:
+
+```bash
+kubectl get configmap istio -n istio-system -o jsonpath='{.data.mesh}'
+```
+
+The `Istio` custom resource has no field for these settings.
+The $[prodname]-managed istiod starts with the Istio defaults, and your settings are not carried over.
+Compare every key in the output against the defaults. These cause the most trouble:
+
+* `trustDomain`: every workload identity changes, and `AuthorizationPolicy` rules that name a principal deny traffic they used to allow.
+* `outboundTrafficPolicy: REGISTRY_ONLY`: goes back to `ALLOW_ANY`, so workloads can reach external hosts that were blocked.
+* `extensionProviders`: `AuthorizationPolicy` resources with `action: CUSTOM` lose their external authorization provider.
+* `accessLogFile`: mesh access logs stop. Traffic through a Waypoint still shows up in $[prodname] L7 logs.
+
+If you depend on any of these settings, resolve that before you migrate.
+
 These constraints shape the two supported cutover patterns.
 
 ### Pattern 1: single maintenance window (recommended)
