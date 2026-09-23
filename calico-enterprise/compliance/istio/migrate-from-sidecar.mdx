@@ -289,7 +289,9 @@ Deploy a Waypoint before you enable ambient mode for the namespace, but do not a
 
 1. Update your $[prodname] network policies to allow traffic to port 15008 for the workloads behind the Waypoint. See [Network policy during and after migration](#network-policy-during-and-after-migration).
 
-{/* ENG REVIEW: IstioSpec exposes waypointLogging, which injects an l7-collector sidecar into Waypoint pods to produce L7 logs. If that is a supported, documented capability in this release, it belongs here as a Calico-specific benefit of running Waypoints, with a link to the L7 logs topic. Today the L7 logs page says L7 log collection is not compatible with a service mesh, which reads as a contradiction for customers who deploy Waypoints. */}
+By default, $[prodname] adds an `l7-collector` container to each Waypoint pod, so traffic through a Waypoint shows up in $[prodname] L7 logs.
+To turn this off, set `waypointLogging: Disabled` in the `Istio` custom resource.
+See [Collect L7 logs using the Waypoint collector](../../observability/elastic/l7/enable-waypoint-collector.mdx).
 
 ## Step 4: Enable ambient mode, namespace by namespace
 
