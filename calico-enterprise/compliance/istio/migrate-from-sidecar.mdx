@@ -348,7 +348,7 @@ Follow this order. Doing it out of order can leave traffic handled by neither a 
 
    :::warning
 
-   Once the sidecars are gone, zTunnel enforces the remaining `AuthorizationPolicy` resources, but it only understands Layer 4 attributes. It drops the Layer 7 conditions from a policy rather than ignoring the policy. An `ALLOW` policy whose rules were entirely Layer 7 becomes an empty allow, which denies all traffic to the selected workloads. A `DENY` policy behaves the same way, with the opposite effect.
+   Once the sidecars are gone, zTunnel enforces the remaining `AuthorizationPolicy` resources, but it only understands Layer 4 attributes. A policy with Layer 7 rules does not get ignored. It fails safe by becoming a `DENY` policy. An `ALLOW` policy with Layer 7 rules denies the traffic it used to allow, and a `DENY` policy with Layer 7 rules can deny more traffic than you intended.
 
    :::
 
@@ -463,7 +463,7 @@ done
 
 **Traffic fails between a migrated and a not-yet-migrated namespace.** The two workloads trust different certificate authorities, because the `cacerts` secret was not copied to `calico-system`. Finish migrating both namespaces, or temporarily disable mTLS for that service pair with a `DestinationRule`.
 
-**A migrated workload is denied all traffic.** Check for an `AuthorizationPolicy` whose rules were entirely Layer 7. zTunnel drops the Layer 7 conditions, leaving an empty rule. Delete the policy and re-create it against a Waypoint with `targetRefs`.
+**A migrated workload is denied all traffic.** Check for an `AuthorizationPolicy` with Layer 7 rules that still selects the workload. zTunnel treats it as a `DENY` policy. Delete the policy and re-create it against a Waypoint with `targetRefs`.
 
 ## Additional resources
 
