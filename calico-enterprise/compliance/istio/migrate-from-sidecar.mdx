@@ -21,7 +21,7 @@ Sidecar meshes put an Envoy proxy next to every pod. That proxy consumes memory 
 Istio Ambient Mode replaces per-pod sidecars with a per-node zTunnel proxy for Layer 4 mTLS, and optional Waypoint proxies for Layer 7 features.
 On $[prodname], that comes with three additional benefits:
 
-* **Your network policies keep working.** $[prodname] ships an [enhanced zTunnel](about-istio-ambient.mdx#the-enhanced-ztunnel-proxy) that preserves the original destination port, so existing $[prodname] and Kubernetes network policies continue to match traffic exactly as they did before the traffic was encrypted. In upstream Istio Ambient Mode, all mesh traffic appears as port 15008 and policies have to be rewritten.
+* **Your network policies keep working.** $[prodname] ships an [enhanced zTunnel](about-istio-ambient.mdx#the-enhanced-ztunnel-proxy) that preserves the original destination port, so existing $[prodname] and Kubernetes network policies continue to match traffic exactly as they did before the traffic was encrypted. To make this work, $[prodname] sets DSCP 23 on the first packet of each new connection between two mesh pods. You can change the value with `dscpMark` in the `Istio` custom resource. In upstream Istio Ambient Mode, all mesh traffic appears as port 15008 and policies have to be rewritten.
 * **The mesh lifecycle is managed for you.** The Tigera Operator installs and upgrades istiod, the Istio CNI plugin, and zTunnel, and CVEs are addressed on the regular $[prodname] patch release cadence.
 * **Flow visibility is unchanged.** Because ports and workload identity are preserved, $[prodname] flow logs and the flow visualizations in the web console keep showing service-to-service traffic the way they did before you enabled mTLS.
 
@@ -41,6 +41,7 @@ On $[prodname], that comes with three additional benefits:
 | `Gateway` (ingress) | No change |
 | `PeerAuthentication` with `mode: DISABLE` | Not supported. Remove before migrating |
 | $[prodname] network policy | No change, as long as you do not deploy Waypoints. See [Network policy during and after migration](#network-policy-during-and-after-migration) |
+| DSCP field on new connections between mesh pods | Set to 23 by $[prodname]. Change it with `dscpMark` in the `Istio` custom resource |
 
 ## Before you begin
 
@@ -123,6 +124,14 @@ Layer 4 enforcement is not affected. zTunnel enforces L4 `AuthorizationPolicy` r
    ```bash
    kubectl get peerauthentication --all-namespaces -o yaml | grep -B5 'mode: DISABLE'
    ```
+
+1. Confirm that the Istio fields in your `FelixConfiguration` are empty. The Tigera Operator sets them itself. If you set either one by hand, the install stops with `felixconfig IstioAmbientMode modified by user` or `felixconfig IstioDSCPMark modified by user`.
+
+   ```bash
+   kubectl get felixconfiguration default -o jsonpath='{.spec.istioAmbientMode}{"\n"}{.spec.istioDSCPMark}{"\n"}'
+   ```
+
+   Both lines must be empty. If they are not, remove the fields before Step 2.
 
 :::note
 
