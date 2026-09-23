@@ -122,22 +122,47 @@ Layer 4 enforcement is not affected. zTunnel enforces L4 `AuthorizationPolicy` r
 
 ## Plan your cutover
 
-The Tigera Operator installs istiod, the Istio CNI plugin, and zTunnel into the `calico-system` namespace, and it manages the Istio webhooks and CRDs.
-It cannot run alongside a self-managed Istio control plane, because both installations claim the same cluster-scoped resources and both install an Istio CNI plugin on every node.
+The Tigera Operator installs istiod, the Istio CNI plugin, and zTunnel into the `calico-system` namespace.
+It cannot run alongside a self-managed Istio control plane.
+Both installations use a validating webhook named `istiod-default-validator`, both add an Istio CNI plugin to the same CNI configuration on every node, and both control planes manage the same built-in `GatewayClass` resources.
 
 **You must remove your self-managed Istio control plane before you create the `Istio` custom resource.**
 
-{/* ENG REVIEW: this is the crux of the topic and needs to be confirmed or corrected before publication.
-     1. Can the operator-managed Istio coexist with a self-managed istiod in istio-system for the duration of a phased migration (CRD ownership, validating/mutating webhooks, two istio-cni plugins on one node)? If yes, this whole section changes and a phased path becomes the recommendation.
-     2. Can the operator-managed istiod use an existing root CA (a cacerts secret), so that workloads that still have sidecars can complete mTLS with workloads that zTunnel now handles? The IstioSpec API currently exposes istiod, istioCNI, ztunnel, waypointLogging, and dscpMark only.
-     3. What is the tested cert lifetime for sidecars that keep running after their control plane is removed? The 24-hour figure below is the Istio default, not a Tigera-tested number. */}
+The operator creates the Istio CRDs only if they do not exist yet.
+It does not change CRDs that your self-managed installation created.
 
-That constraint shapes the two supported cutover patterns.
+### Keep your root certificate authority
+
+If you gave your self-managed Istio your own certificate authority, it is stored in the `cacerts` secret in `istio-system`.
+The $[prodname]-managed istiod reads a `cacerts` secret from `calico-system` instead.
+Copy yours across before Step 1:
+
+```bash
+kubectl get secret cacerts -n istio-system -o json \
+  | jq 'del(.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.managedFields,.metadata.ownerReferences) | .metadata.namespace="calico-system"' \
+  | kubectl apply -f -
+kubectl get secret cacerts -n calico-system
+```
+
+With the same root, sidecars and zTunnel trust each other's certificates, so migrated and not-yet-migrated workloads keep talking over mTLS during the migration.
+
+If `istio-system` has no `cacerts` secret, your self-managed istiod generated its own root.
+The $[prodname]-managed istiod generates a new one, and the two roots do not trust each other.
+
+:::warning
+
+Copy the secret before you create the `Istio` custom resource.
+Changing the root under a running $[prodname]-managed istiod splits the mesh: existing pods keep working, but new pods get no certificate and zTunnel loses its connection to istiod.
+
+:::
+
+These constraints shape the two supported cutover patterns.
 
 ### Pattern 1: single maintenance window (recommended)
 
 Remove the self-managed control plane, install the $[prodname]-managed one, and migrate every namespace in one window.
-This is the recommended pattern for most clusters, because at no point do you have workloads that are trying to establish mTLS with two different root certificate authorities.
+This is the recommended pattern for most clusters, because sidecar and migrated workloads only have to talk to each other for the length of the window.
+If you could not copy a `cacerts` secret, traffic between them fails TLS verification until the last namespace is migrated.
 
 Choose this pattern if your cluster has a small number of meshed namespaces, or if you enforce Layer 7 policy.
 
@@ -148,9 +173,9 @@ Remove the self-managed control plane, install the $[prodname]-managed one, then
 Pods that still have sidecars keep forwarding traffic using their cached configuration, but be aware of two constraints:
 
 * **Certificates are not rotated.** After the self-managed istiod is gone, sidecars can no longer refresh their workload certificates. Istio's default certificate lifetime is 24 hours, so plan to finish the migration well inside that window.
-* **mTLS between sidecar and migrated workloads fails.** Sidecars trust the root CA of your old control plane, and zTunnel presents a certificate from the new one. Traffic between a not-yet-migrated workload and a migrated workload fails TLS verification unless you temporarily disable mTLS for those service pairs with a `DestinationRule`.
+* **mTLS between sidecar and migrated workloads fails without a shared root.** If you did not copy a `cacerts` secret, sidecars trust the root CA of your old control plane, and zTunnel presents a certificate from the new one. Traffic between a not-yet-migrated workload and a migrated workload fails TLS verification unless you temporarily disable mTLS for those service pairs with a `DestinationRule`.
 
-Choose this pattern only if you can group namespaces so that services that talk to each other migrate together.
+Choose this pattern only if you copied your `cacerts` secret, or if you can group namespaces so that services that talk to each other migrate together.
 
 ## Network policy during and after migration
 
@@ -419,7 +444,7 @@ done
 
 **A workload was labeled but never joined the mesh.** The pod most likely still has a sidecar, which takes precedence. Confirm that injection is removed from the namespace and restart the workload.
 
-**Traffic fails between a migrated and a not-yet-migrated namespace.** The two workloads trust different certificate authorities. Finish migrating both namespaces, or temporarily disable mTLS for that service pair with a `DestinationRule`.
+**Traffic fails between a migrated and a not-yet-migrated namespace.** The two workloads trust different certificate authorities, because the `cacerts` secret was not copied to `calico-system`. Finish migrating both namespaces, or temporarily disable mTLS for that service pair with a `DestinationRule`.
 
 **A migrated workload is denied all traffic.** Check for an `AuthorizationPolicy` whose rules were entirely Layer 7. zTunnel drops the Layer 7 conditions, leaving an empty rule. Delete the policy and re-create it against a Waypoint with `targetRefs`.
 
