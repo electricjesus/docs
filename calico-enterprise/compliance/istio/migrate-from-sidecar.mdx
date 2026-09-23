@@ -223,22 +223,23 @@ From this step on, no new pod in any namespace gets a sidecar.
    kubectl label namespace <namespace> istio.io/rev-
    ```
 
-1. Uninstall the self-managed control plane, including the Istio CNI plugin:
+1. Uninstall the self-managed control plane, including the Istio CNI plugin. Keep the Istio CRDs: they hold your `VirtualService`, `AuthorizationPolicy`, and other resources, and your rollback path needs them.
 
-   ```bash
-   istioctl uninstall --purge
-   ```
-
-   With Helm:
+   With Helm, keep the `istio-base` release:
 
    ```bash
    helm uninstall istio-cni -n istio-system
    helm uninstall istiod -n istio-system
-   helm uninstall istio-base -n istio-system
    ```
 
-   :::note
-   `istioctl uninstall --purge` also removes the Istio CRDs. The Tigera Operator installs the CRDs that the bundled Istio needs, but your backed-up `VirtualService`, `AuthorizationPolicy`, and other resources are deleted with them. Confirm that `istio-config-backup.yaml` is complete before you run this command.
+   With `istioctl`, pass the options you installed with:
+
+   ```bash
+   istioctl uninstall <your original installation options>
+   ```
+
+   :::warning
+   Do not use `istioctl uninstall --purge`. It removes the Istio CRDs, and every Istio resource in the cluster is deleted with them. Keep `istio-base` installed until you are sure you will not roll back.
    :::
 
 1. Confirm that no Istio control plane components or CNI plugin remain:
@@ -453,6 +454,7 @@ Applying the full `istio-config-backup.yaml` restores your original resources, b
    Both commands must return nothing.
 
 1. Reinstall your self-managed control plane with the same version and options you used before.
+   With Helm, run `helm upgrade --install` for `istio-base` first. Deleting the `Istio` custom resource also deleted the `istiod-default-validator` webhook, and `istio-base` puts it back.
 
 ## What changes in observability after migration
 
