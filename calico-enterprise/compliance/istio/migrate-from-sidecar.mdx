@@ -168,6 +168,26 @@ Changing the root under a running $[prodname]-managed istiod splits the mesh: ex
 
 :::
 
+### Move your mesh-wide policies
+
+A policy in Istio's root namespace applies to the whole mesh.
+Your self-managed Istio uses `istio-system` as its root namespace. The $[prodname]-managed Istio uses `calico-system`.
+
+After Step 2, policies in `istio-system` apply only to `istio-system`. They are not deleted, and nothing reports the change. Some of them fail open:
+
+* A mesh-wide `AuthorizationPolicy` that denies traffic stops denying it in your other namespaces.
+* A mesh-wide `AuthorizationPolicy` that allows traffic no longer denies everything else by default.
+* A mesh-wide `PeerAuthentication` with `mode: STRICT` stops applying. Namespaces without their own `PeerAuthentication` accept plaintext.
+
+List the policies in your root namespace:
+
+```bash
+kubectl get authorizationpolicy,peerauthentication,requestauthentication,telemetry,wasmplugin,envoyfilter -n istio-system
+```
+
+Before Step 2, re-create each one in `calico-system`.
+Until Step 2, `calico-system` is not the root namespace and has no meshed workloads, so the copies have no effect yet.
+
 These constraints shape the two supported cutover patterns.
 
 ### Pattern 1: single maintenance window (recommended)
