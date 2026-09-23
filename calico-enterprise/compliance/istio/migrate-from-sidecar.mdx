@@ -68,8 +68,6 @@ Istio Ambient Mode on $[prodname] also has its own limitations, which apply afte
 * Connect-time load balancing is not compatible with Istio Ambient Mode.
 * Destination ports are preserved only when Istio is deployed without Waypoint. If you deploy Waypoint, traffic through the Waypoint shows port 15008 as its destination port.
 
-{/* ENG REVIEW: confirm eBPF dataplane + ambient status for the shipping version. Fixes for the host-probe/SNAT issue landed in projectcalico/calico#9159 and #9192; confirm whether eBPF mode is a supported configuration for the bundled Istio, and whether Waypoint on eBPF is supported (see istio/istio#55481). If it is not, it belongs in this list. */}
-
 ### Layer 7 policy causes a gap in enforcement
 
 :::warning
