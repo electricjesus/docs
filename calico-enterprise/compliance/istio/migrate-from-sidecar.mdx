@@ -411,7 +411,7 @@ Every step is independently reversible. Roll back in the reverse order of the st
 | --- | --- |
 | Waypoint attached | `kubectl label namespace <namespace> istio.io/use-waypoint-` |
 | Ambient mode enabled | `kubectl label namespace <namespace> istio.io/dataplane-mode-` |
-| Sidecar injection removed | `kubectl label namespace <namespace> istio-injection=enabled` |
+| Sidecar injection removed | Re-add the label you recorded in [Inventory your mesh](#inventory-your-mesh): `kubectl label namespace <namespace> istio-injection=enabled`, or `kubectl label namespace <namespace> istio.io/rev=<revision>` |
 | Workloads restarted | Re-add the injection label, then `kubectl rollout restart deployment -n <namespace>` |
 | Old policies deleted | `kubectl apply -f istio-config-backup.yaml` |
 | $[prodname]-managed Istio installed | `kubectl delete istio.operator.tigera.io default`, then reinstall your self-managed control plane |
