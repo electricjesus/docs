@@ -93,9 +93,21 @@ Layer 4 enforcement is not affected. zTunnel enforces L4 `AuthorizationPolicy` r
 1. Back up every Istio resource you have. You need this to roll back.
 
    ```bash
-   kubectl get virtualservice,destinationrule,authorizationpolicy,requestauthentication,peerauthentication,sidecar,envoyfilter,wasmplugin,gateway,serviceentry \
+   kubectl get virtualservices,destinationrules,authorizationpolicies,peerauthentications,requestauthentications,\
+   telemetries,sidecars,serviceentries,envoyfilters,wasmplugins,proxyconfigs,workloadentries,workloadgroups,\
+   gateways.networking.istio.io \
      --all-namespaces -o yaml > istio-config-backup.yaml
    ```
+
+   If your cluster has the Gateway API CRDs, back up those resources too:
+
+   ```bash
+   kubectl get gateways.gateway.networking.k8s.io,httproutes \
+     --all-namespaces -o yaml > gateway-api-backup.yaml
+   ```
+
+   Write `gateways.networking.istio.io` in full. On a cluster that has the Gateway API CRDs, a plain `gateway` returns Gateway API resources instead of Istio ones.
+   Check that the backup files are not empty.
 
 1. Find the policies that need a Waypoint. Any `AuthorizationPolicy` that matches on `paths`, `methods`, `headers`, `hosts`, or uses JWT claims is a Layer 7 policy:
 
