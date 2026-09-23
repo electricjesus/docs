@@ -373,9 +373,13 @@ Repeat for each namespace. Namespaces you have not labeled are unaffected, subje
 
    The protocol column shows `HBONE` for migrated workloads.
 
-1. Your $[prodname] policies still match the same traffic. Because the enhanced zTunnel preserves the original destination port, flows for a migrated workload should appear with their application ports, not 15008. Check the flow logs or the flow visualizations in the web console for the namespace, and compare against `calico-policy-snapshot.yaml`.
+1. Your $[prodname] policies still match the same traffic. Because the enhanced zTunnel preserves the original destination port, flows for a migrated workload should appear with their application ports, not 15008.
 
-   {/* ENG REVIEW: replace with the exact console navigation path and, if available, a screenshot, plus a CLI equivalent for customers without console access. */}
+   In the web console, select **Service Graph**, **Default**, and double-click the namespace. The flow logs panel at the bottom filters to that namespace. See [Network visualization](../../observability/visualize-traffic.mdx).
+
+   In Kibana, search the `tigera_secure_ee_flows*` index for `dest_namespace: <namespace>` and check the `dest_port` field. See [Kibana dashboards and logs](../../observability/kibana.mdx).
+
+   Compare the policies in each flow's `policies` field against `calico-policy-snapshot.yaml`.
 
 1. Application traffic behaves as before. Test the Layer 7 behavior you rely on: header-based routing, path restrictions, JWT validation.
 
