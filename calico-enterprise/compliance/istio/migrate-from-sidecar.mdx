@@ -109,11 +109,13 @@ Layer 4 enforcement is not affected. zTunnel enforces L4 `AuthorizationPolicy` r
    Write `gateways.networking.istio.io` in full. On a cluster that has the Gateway API CRDs, a plain `gateway` returns Gateway API resources instead of Istio ones.
    Check that the backup files are not empty.
 
-1. Find the policies that need a Waypoint. Any `AuthorizationPolicy` that matches on `paths`, `methods`, `headers`, `hosts`, or uses JWT claims is a Layer 7 policy:
+1. Find the policies that need a Waypoint. Any `AuthorizationPolicy` that matches on `paths`, `methods`, `hosts`, `requestPrincipals`, or a `when` key that starts with `request.` (headers and JWT claims) is a Layer 7 policy:
 
    ```bash
-   kubectl get authorizationpolicy --all-namespaces -o yaml | grep -E 'paths|methods|headers|hosts|when'
+   kubectl get authorizationpolicy --all-namespaces -o yaml | grep -i -E 'paths|methods|hosts|requestPrincipals|key: request\.'
    ```
+
+   A `when` condition on `source.ip`, `source.namespace`, `source.principal`, `destination.ip`, or `destination.port` is Layer 4. zTunnel enforces those without a Waypoint.
 
 1. Confirm that no `PeerAuthentication` resource disables mTLS:
 
