@@ -182,7 +182,9 @@ Choose this pattern if your cluster has a small number of meshed namespaces, or 
 
 Remove the self-managed control plane, install the $[prodname]-managed one, then migrate namespaces in batches over a longer period.
 
-Pods that still have sidecars keep forwarding traffic using their cached configuration, but be aware of two constraints:
+Pods that still have sidecars keep forwarding traffic using their cached configuration, but be aware of three constraints:
+
+* **Restarted pods lose their sidecar.** The $[prodname]-managed istiod does not inject sidecars. A pod that restarts in a namespace you have not migrated yet, for example after an eviction or a scale-up, starts with no sidecar and outside the ambient mesh. Its traffic is plaintext, and workloads that require `STRICT` mTLS refuse it.
 
 * **Certificates are not rotated.** After the self-managed istiod is gone, sidecars can no longer refresh their workload certificates. Istio's default certificate lifetime is 24 hours, so plan to finish the migration well inside that window.
 * **mTLS between sidecar and migrated workloads fails without a shared root.** If you did not copy a `cacerts` secret, sidecars trust the root CA of your old control plane, and zTunnel presents a certificate from the new one. Traffic between a not-yet-migrated workload and a migrated workload fails TLS verification unless you temporarily disable mTLS for those service pairs with a `DestinationRule`.
@@ -207,6 +209,7 @@ kubectl get networkpolicies.projectcalico.org,globalnetworkpolicies.projectcalic
 ## Step 1: Remove the self-managed Istio control plane
 
 Remove the control plane components only. Leave the injected sidecars and your Istio configuration resources (`VirtualService`, `AuthorizationPolicy`, and so on) in place for now: existing pods continue to serve traffic with their cached configuration, and you still need those resources for rollback.
+From this step on, no new pod in any namespace gets a sidecar.
 
 1. Remove sidecar injection from the namespaces you are about to migrate, so that no new pod comes up with a sidecar:
 
@@ -405,7 +408,15 @@ Repeat for each namespace. Namespaces you have not labeled are unaffected, subje
 
 ## Roll back
 
-Every step is independently reversible. Roll back in the reverse order of the step you completed.
+Roll back in the reverse order of the step you completed.
+
+:::note
+
+The $[prodname]-managed istiod does not inject sidecars.
+Re-adding an injection label brings sidecars back only while a self-managed control plane is running.
+If you have completed Step 1, first [go back to your self-managed control plane](#go-back-to-your-self-managed-control-plane), then re-add the labels and restart the workloads.
+
+:::
 
 | Last completed step | Rollback |
 | --- | --- |
@@ -414,7 +425,7 @@ Every step is independently reversible. Roll back in the reverse order of the st
 | Sidecar injection removed | Re-add the label you recorded in [Inventory your mesh](#inventory-your-mesh): `kubectl label namespace <namespace> istio-injection=enabled`, or `kubectl label namespace <namespace> istio.io/rev=<revision>` |
 | Workloads restarted | Re-add the injection label, then `kubectl rollout restart deployment -n <namespace>` |
 | Old policies deleted | `kubectl apply -f istio-config-backup.yaml` |
-| $[prodname]-managed Istio installed | `kubectl delete istio.operator.tigera.io default`, then reinstall your self-managed control plane |
+| $[prodname]-managed Istio installed | See [Go back to your self-managed control plane](#go-back-to-your-self-managed-control-plane) |
 
 After a rollback that re-injects sidecars, confirm that pods show `2/2` containers and that traffic flows before you continue.
 
@@ -423,6 +434,25 @@ After a rollback that re-injects sidecars, confirm that pods show `2/2` containe
 Applying the full `istio-config-backup.yaml` restores your original resources, but it also overwrites any ambient resources you created during the migration that share a name with a backed-up resource. Delete the ambient resources first, or apply individual resources from the backup.
 
 :::
+
+### Go back to your self-managed control plane
+
+1. Delete the `Istio` custom resource:
+
+   ```bash
+   kubectl delete istio.operator.tigera.io default
+   ```
+
+1. Wait until nothing of it is left. The two control planes must never run at the same time.
+
+   ```bash
+   kubectl get pods -n calico-system -l 'app in (istiod,ztunnel,istio-cni-node)'
+   kubectl get felixconfiguration default -o jsonpath='{.spec.istioAmbientMode}{"\n"}'
+   ```
+
+   Both commands must return nothing.
+
+1. Reinstall your self-managed control plane with the same version and options you used before.
 
 ## What changes in observability after migration
 
