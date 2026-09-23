@@ -285,7 +285,7 @@ Remove the control plane components only. Leave the injected sidecars and your I
 
 Skip this step if all of your `AuthorizationPolicy` resources are Layer 4 only and you do not use `VirtualService` for routing, retries, fault injection, or header manipulation.
 
-Deploy a Waypoint before you enable ambient mode for the namespace, but do not attach workloads to it until the sidecars are gone. A workload that has both a sidecar and a Waypoint processes traffic twice.
+Deploy the Waypoint before you enable ambient mode for the namespace. Step 4 attaches workloads to it before the restart. A pod that still has a sidecar keeps using the sidecar, so traffic is not processed twice.
 
 1. Deploy a Waypoint in the namespace:
 
